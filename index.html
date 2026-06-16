@@ -1,0 +1,1565 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0c0c0e">
+<meta name="robots" content="noindex, nofollow">
+<title>GPS Koordinaten</title>
+<link rel="stylesheet" href="leaflet.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;max-width:100%}
+html,body{overflow-x:hidden;width:100%;max-width:100vw}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:#0c0c0e;color:#e8e8f0;min-height:100vh}
+
+/* ── Login ── */
+#login{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px}
+.login-card{background:#16161a;border:1px solid #2e2e38;border-radius:16px;padding:32px 24px;width:100%;max-width:360px}
+.login-card h1{font-size:22px;margin-bottom:4px;text-align:center}
+.login-card p{color:#7a7a90;font-size:13px;text-align:center;margin-bottom:24px}
+.pw-wrap{position:relative;margin-bottom:12px}
+.pw-wrap input{width:100%;padding:12px 44px 12px 12px;background:#1f1f25;border:1.5px solid #2e2e38;border-radius:10px;color:#e8e8f0;font-size:15px;outline:none}
+.pw-wrap input:focus{border-color:#4f7ef7;box-shadow:0 0 0 3px rgba(79,126,247,.18)}
+.pw-eye{position:absolute;right:0;top:0;height:100%;width:42px;background:transparent;border:none;color:#7a7a90;cursor:pointer;font-size:16px}
+.pw-eye:hover{color:#e8e8f0}
+.btn-login{width:100%;padding:13px;background:#4f7ef7;border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+.btn-login:hover{background:#3a63d4}
+.btn-login:disabled{opacity:.5;cursor:default}
+#loginErr{color:#e05252;font-size:13px;margin-top:10px;text-align:center;min-height:18px}
+#loginSpin{display:none;color:#7a7a90;font-size:13px;text-align:center;margin-top:8px}
+
+/* ── Haupt-App ── */
+#app{display:none;flex-direction:column;height:100vh}
+.app-header{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#16161a;border-bottom:1px solid #2e2e38;flex-shrink:0}
+.app-header h2{font-size:15px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn-add-header{background:#4f7ef7;border:none;border-radius:8px;color:#fff;padding:7px 12px;cursor:pointer;font-size:13px;font-weight:600;flex-shrink:0;white-space:nowrap}
+.tab-bar{display:flex;border-bottom:1px solid #2e2e38;flex-shrink:0}
+.tab{flex:1;padding:11px;background:transparent;border:none;color:#7a7a90;font-size:14px;cursor:pointer;border-bottom:2px solid transparent}
+.tab.active{color:#4f7ef7;border-bottom-color:#4f7ef7}
+
+/* ── Suche ── */
+#tab-list{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.search-wrap{padding:12px;position:relative;flex-shrink:0}
+.search-wrap input{width:100%;padding:10px 12px 10px 36px;background:#1f1f25;border:1.5px solid #2e2e38;border-radius:10px;color:#e8e8f0;font-size:14px;outline:none}
+.search-wrap input:focus{border-color:#4f7ef7}
+.search-icon{position:absolute;left:24px;top:50%;transform:translateY(-50%);color:#7a7a90;font-size:15px}
+.count{padding:0 16px 8px;color:#7a7a90;font-size:12px;flex-shrink:0}
+#locationList{list-style:none;flex:1;overflow-y:auto}
+.loc-item{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid #1f1f25;cursor:pointer}
+.loc-item:hover{background:#16161a}
+.loc-pin{width:8px;height:8px;border-radius:50%;background:#f76b4f;margin-right:12px;flex-shrink:0}
+.loc-body{flex:1;min-width:0}
+.loc-name{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.loc-info{font-size:12px;color:#7a7a90;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.loc-arrow{color:#2e2e38;font-size:18px}
+.empty{padding:32px 16px;text-align:center;color:#7a7a90;font-size:14px}
+.kunde-select-wrap{padding:0 12px 8px;flex-shrink:0;position:relative}
+.kunde-select-wrap select{width:100%;padding:9px 36px 9px 12px;background:#1f1f25;border:1.5px solid #2e2e38;border-radius:10px;color:#e8e8f0;font-size:14px;outline:none;appearance:none;-webkit-appearance:none;cursor:pointer}
+.kunde-select-wrap select:focus{border-color:#4fc994}
+.kunde-select-wrap select.active{border-color:#4fc994;color:#4fc994;font-weight:600}
+.kunde-select-arrow{position:absolute;right:24px;top:50%;transform:translateY(-50%);pointer-events:none;color:#7a7a90;font-size:12px}
+
+/* ── Karten-Info-Box ── */
+#mapInfoBox{position:absolute;z-index:500;background:#16161a;border:1px solid #2e2e38;border-radius:14px;box-shadow:0 6px 28px rgba(0,0,0,.7);padding:14px 16px;min-width:220px;max-width:270px;display:none;pointer-events:all}
+#mapInfoBox.show{display:block}
+#mapInfoBox .mib-name{font-size:16px;font-weight:700;color:#e8e8f0;margin-bottom:6px;padding-right:24px}
+#mapInfoBox .mib-kunde{color:#4fc994;font-size:13px;margin-bottom:2px}
+#mapInfoBox .mib-info{color:#7a7a90;font-size:12px;margin-bottom:2px}
+#mapInfoBox .mib-close{position:absolute;top:10px;right:12px;background:none;border:none;color:#7a7a90;font-size:18px;cursor:pointer;line-height:1;padding:0}
+#mapInfoBox .mib-btn{margin-top:10px;width:100%;padding:11px;background:#4f7ef7;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;display:block}
+
+/* ── Karte ── */
+#tab-map{display:none;flex:1;position:relative}
+#map{width:100%;height:100%}
+#mapPickBanner{position:absolute;top:10px;left:10px;right:10px;z-index:1000;background:rgba(22,22,26,.95);border:1px solid #4fc994;border-radius:12px;padding:12px 14px;display:none;align-items:center;gap:10px;pointer-events:all}
+#mapPickBanner span{flex:1;font-size:13px;color:#e8e8f0}
+#mapPickBanner small{display:block;color:#4fc994;font-size:11px;margin-top:2px}
+.btn-pick-cancel{background:transparent;border:none;color:#7a7a90;font-size:20px;cursor:pointer;padding:0 2px;flex-shrink:0}
+#mapPickConfirm{position:absolute;bottom:16px;left:16px;right:16px;z-index:1000;display:none;gap:10px;pointer-events:all}
+.btn-pick-share{flex:1;padding:14px;background:#4fc994;border:none;border-radius:12px;color:#000;font-size:15px;font-weight:700;cursor:pointer}
+.btn-pick-share:disabled{opacity:.5;cursor:default}
+.btn-pick-abort{padding:14px 16px;background:#2a2a32;border:none;border-radius:12px;color:#e8e8f0;font-size:14px;cursor:pointer}
+
+/* ── Detail ── */
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:2000}
+#overlay.show{display:block}
+#detail{position:fixed;bottom:0;left:0;right:0;width:100%;background:#16161a;border-radius:20px 20px 0 0;padding:0 0 env(safe-area-inset-bottom);z-index:2001;transform:translateY(100%);transition:transform .3s ease;max-height:85vh;overflow-y:auto}
+#detail.show{transform:translateY(0)}
+.sheet-handle{width:40px;height:4px;background:#2e2e38;border-radius:2px;margin:12px auto}
+.sheet-body{padding:0 20px 16px}
+.sheet-title{font-size:18px;font-weight:700;margin-bottom:16px}
+.sheet-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1f1f25;font-size:14px}
+.sheet-label{color:#7a7a90}
+.sheet-val{font-weight:500;text-align:right;max-width:65%;word-break:break-word}
+.sheet-actions{padding:16px 20px;display:flex;flex-direction:column;gap:10px}
+.btn-maps{display:block;padding:14px;background:#4f7ef7;border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}
+.btn-close{padding:12px;background:#1f1f25;border:none;border-radius:12px;color:#e8e8f0;font-size:14px;cursor:pointer;width:100%}
+.btn-delete-personal{padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;width:100%;background:#3a1a1a;color:#e05252}
+.btn-edit-loc{padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;width:100%;background:#2a2a32;color:#e8e8f0}
+.loc-pin.personal{background:#4f7ef7}
+.marker-red img{filter:hue-rotate(140deg) saturate(2)}
+.btn-add{display:none}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1500;display:none;align-items:flex-end}
+.modal-bg.show{display:flex}
+.modal{background:#16161a;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:90vh;overflow-y:auto}
+.modal h3{margin-bottom:16px;font-size:17px}
+.modal label{display:block;font-size:12px;color:#7a7a90;margin-bottom:4px;margin-top:12px}
+.modal input,.modal select{width:100%;padding:10px 12px;background:#1f1f25;border:1.5px solid #2e2e38;border-radius:10px;color:#e8e8f0;font-size:15px;outline:none;appearance:none;-webkit-appearance:none}
+.modal input:focus,.modal select:focus{border-color:#4f7ef7}
+.modal-actions{display:flex;gap:10px;margin-top:20px}
+.btn-save{flex:1;padding:13px;background:#4f7ef7;border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+.btn-cancel{flex:1;padding:13px;background:#2a2a32;border:none;border-radius:12px;color:#e8e8f0;font-size:14px;cursor:pointer}
+.btn-gps{width:100%;padding:10px;background:#1f1f25;border:1px solid #2e2e38;border-radius:10px;color:#4f7ef7;font-size:13px;cursor:pointer;margin-top:4px}
+
+/* ── Auswahl-Sheet ── */
+.choice-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1500;display:none;align-items:flex-end}
+.choice-modal-bg.show{display:flex}
+.choice-modal{background:#16161a;border-radius:20px 20px 0 0;padding:20px;width:100%}
+.choice-modal h3{margin-bottom:20px;font-size:17px;text-align:center}
+.btn-choice{display:flex;align-items:center;gap:14px;width:100%;padding:16px;background:#1f1f25;border:1.5px solid #2e2e38;border-radius:14px;color:#e8e8f0;font-size:15px;font-weight:500;cursor:pointer;margin-bottom:10px;text-align:left}
+.btn-choice:hover{background:#2a2a32}
+.btn-choice-icon{font-size:24px;flex-shrink:0}
+.btn-choice-desc{font-size:12px;color:#7a7a90;font-weight:400;display:block;margin-top:2px}
+
+/* ── Autocomplete ── */
+#acList{position:absolute;top:100%;left:12px;right:12px;background:#1f1f25;border:1px solid #2e2e38;border-radius:10px;z-index:10;max-height:200px;overflow-y:auto;display:none}
+
+/* ── Live-Standort ── */
+.btn-live{display:none}
+.live-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1500;display:none;align-items:flex-end}
+.live-modal-bg.show{display:flex}
+.live-modal{background:#16161a;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:90vh;overflow-y:auto}
+.live-modal h3{margin-bottom:4px;font-size:17px}
+.live-subtitle{color:#7a7a90;font-size:13px;margin-bottom:16px}
+.live-modal label{display:block;font-size:12px;color:#7a7a90;margin-bottom:4px;margin-top:12px}
+.live-modal input{width:100%;padding:10px 12px;background:#1f1f25;border:1.5px solid #2e2e38;border-radius:10px;color:#e8e8f0;font-size:15px;outline:none}
+.live-modal input:focus{border-color:#4fc994}
+.live-status{margin-top:12px;font-size:13px;text-align:center;min-height:18px;color:#7a7a90}
+.live-status.ok{color:#4fc994} .live-status.err{color:#e05252}
+.btn-share{width:100%;padding:13px;background:#4fc994;border:none;border-radius:12px;color:#000;font-size:15px;font-weight:700;cursor:pointer;margin-top:12px}
+.btn-share:disabled{opacity:.5;cursor:default}
+.btn-remove-live{width:100%;padding:11px;background:#2a2a32;border:none;border-radius:12px;color:#e05252;font-size:13px;cursor:pointer;margin-top:6px}
+@keyframes livepulse{0%{transform:scale(1);opacity:.9}100%{transform:scale(2.4);opacity:0}}
+.live-dot{width:14px;height:14px;background:#4fc994;border-radius:50%;position:relative;box-shadow:0 0 0 2px #16161a}
+.live-dot::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:2px solid #4fc994;animation:livepulse 1.6s ease-out infinite;opacity:0}
+
+.settings-status.ok{color:#4fc994}
+.ac-item{padding:10px 14px;cursor:pointer;font-size:14px}
+.ac-item:hover{background:#2a2a32}
+
+/* ── Toast ── */
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#4fc994;color:#000;font-size:13px;font-weight:600;padding:10px 18px;border-radius:10px;z-index:3000;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+.btn-set-home{padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;width:100%;background:#2a2a1a;color:#f7c94f}
+
+/* ── Hauptstandort ── */
+.btn-home{background:transparent;border:none;color:#7a7a90;padding:7px 8px;cursor:pointer;font-size:18px;flex-shrink:0}
+.btn-home.set{color:#f7c94f}
+.home-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1500;display:none;align-items:flex-end}
+.home-modal-bg.show{display:flex}
+.home-modal{background:#16161a;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:85vh;overflow-y:auto}
+.home-modal h3{margin-bottom:4px;font-size:17px}
+.home-current{background:#1f1f25;border-radius:10px;padding:12px;margin-bottom:14px;font-size:13px;color:#7a7a90}
+.home-current b{color:#f7c94f;display:block;font-size:14px;margin-bottom:2px}
+.home-search{width:100%;padding:10px 12px;background:#1f1f25;border:1.5px solid #2e2e38;border-radius:10px;color:#e8e8f0;font-size:14px;outline:none;margin-bottom:8px}
+.home-search:focus{border-color:#f7c94f}
+.home-list{max-height:240px;overflow-y:auto;border:1px solid #2e2e38;border-radius:10px;margin-bottom:12px}
+.home-item{padding:12px 14px;border-bottom:1px solid #1f1f25;cursor:pointer;font-size:14px}
+.home-item:last-child{border-bottom:none}
+.home-item:hover{background:#2a2a32}
+.home-item-sub{font-size:11px;color:#7a7a90;margin-top:2px}
+.btn-maps-home{display:block;padding:12px;background:#f7c94f;border:none;border-radius:12px;color:#000;font-size:14px;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}
+.btn-maps-gps{display:block;padding:12px;background:#4f7ef7;border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login">
+  <div class="login-card">
+    <h1>📍 GPS Koordinaten</h1>
+    <p>Bitte Passwort eingeben</p>
+    <div class="pw-wrap">
+      <input type="password" id="pwInput" placeholder="Passwort" autocomplete="current-password">
+      <button class="pw-eye" onclick="togglePw()" type="button">👁</button>
+    </div>
+    <button class="btn-login" id="loginBtn" onclick="doLogin()">Anmelden</button>
+    <div id="loginSpin">Wird entschlüsselt …</div>
+    <div id="loginErr"></div>
+  </div>
+</div>
+
+<!-- Haupt-App -->
+<div id="app">
+  <div class="app-header">
+    <h2>📍 GPS Koordinaten</h2>
+    <button class="btn-home" id="btnHome" onclick="openHomeModal()" title="Hauptstandort">🏠</button>
+    <button class="btn-add-header" onclick="openAddChoice()">+ Standort</button>
+  </div>
+  <div class="tab-bar">
+    <button class="tab active" id="tabList" onclick="showTab('list')">Suche</button>
+    <button class="tab"        id="tabMap"  onclick="showTab('map')">Karte</button>
+  </div>
+  <div class="kunde-select-wrap" id="kundeBar" style="display:none">
+    <select id="kundeSelect" onchange="onKundeSelect(this.value)">
+      <option value="">Alle Kunden</option>
+    </select>
+    <span class="kunde-select-arrow">▼</span>
+  </div>
+
+  <div id="tab-list">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="search" id="searchInput" placeholder="Name oder Info suchen …"
+             autocorrect="off" autocapitalize="off" spellcheck="false"
+             oninput="doSearch()" autocomplete="off">
+      <div id="acList"></div>
+    </div>
+    <div class="count" id="countLbl"></div>
+    <ul id="locationList"></ul>
+  </div>
+
+  <div id="tab-map">
+    <div id="map"></div>
+    <div id="mapNoFilterMsg" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(12,12,14,.7);z-index:400;flex-direction:column;gap:12px;pointer-events:none">
+      <div style="font-size:32px">🗺️</div>
+      <div style="color:#e8e8f0;font-size:15px;font-weight:600">Kunden auswählen</div>
+      <div style="color:#7a7a90;font-size:13px;text-align:center;padding:0 32px">Wähle oben einen Kunden aus dem Dropdown um die Standorte auf der Karte zu sehen</div>
+    </div>
+    <div id="mapInfoBox">
+      <button class="mib-close" onclick="closeMapInfo()">✕</button>
+      <div class="mib-name"  id="mibName"></div>
+      <div class="mib-kunde" id="mibKunde"></div>
+      <div class="mib-info"  id="mibInfo"></div>
+      <button class="mib-btn" id="mibBtn">Details &amp; Route ›</button>
+    </div>
+    <div id="mapPickBanner">
+      <span>Tippe auf die Karte um deinen Standort zu setzen<small id="mapPickCoords"></small></span>
+      <button class="btn-pick-cancel" onclick="cancelPickMode()" title="Abbrechen">✕</button>
+    </div>
+    <div id="mapPickConfirm">
+      <button class="btn-pick-share" id="mapPickShareBtn" onclick="confirmPickLocation()">📡 Diesen Standort teilen</button>
+      <button class="btn-pick-abort" onclick="cancelPickMode()">✕</button>
+    </div>
+  </div>
+  <button class="btn-add" id="addBtn" onclick="openAddModal()" title="Eigenen Standort hinzufügen">+</button>
+</div>
+
+<!-- Modal: Standort hinzufügen – Auswahl -->
+<div class="choice-modal-bg" id="addChoiceModal">
+  <div class="choice-modal">
+    <h3>Standort hinzufügen</h3>
+    <button class="btn-choice" onclick="openAddWithGps()">
+      <span class="btn-choice-icon">📡</span>
+      <span>GPS-Standort verwenden<span class="btn-choice-desc">Koordinaten werden automatisch ermittelt – Kunde, Station und Infos eintragen</span></span>
+    </button>
+    <button class="btn-choice" onclick="closeAddChoice(); openAddModal()">
+      <span class="btn-choice-icon">📍</span>
+      <span>Manuell eingeben<span class="btn-choice-desc">Koordinaten, Kunde, Station und Infos selbst eintragen</span></span>
+    </button>
+    <button class="btn-close" onclick="closeAddChoice()" style="width:100%;margin-top:4px">Abbrechen</button>
+  </div>
+</div>
+
+<!-- Modal: Eigener Standort -->
+<div class="modal-bg" id="addModal">
+  <div class="modal">
+    <h3>📍 Standort hinzufügen</h3>
+    <label>Kunde *</label>
+    <div style="position:relative">
+      <select id="addKunde" style="width:100%;padding:10px 36px 10px 12px;background:#1f1f25;border:1.5px solid #4fc994;border-radius:10px;color:#e8e8f0;font-size:15px;outline:none;appearance:none;-webkit-appearance:none;cursor:pointer">
+        <option value="">— Kunde wählen —</option>
+      </select>
+      <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#4fc994;font-size:13px">▼</span>
+    </div>
+    <label>Station *</label>
+    <input type="text" id="addName" placeholder="z.B. Hauptsitz München">
+    <label>Breite (Latitude) *</label>
+    <input type="number" id="addLat" step="any" placeholder="z.B. 48.137154">
+    <label>Länge (Longitude) *</label>
+    <input type="number" id="addLng" step="any" placeholder="z.B. 11.576124">
+    <button class="btn-gps" onclick="useMyLocation()">📡 GPS-Standort verwenden</button>
+    <button class="btn-gps" onclick="startPickModeFromAdd()" style="margin-top:4px">📍 Auf Karte antippen</button>
+    <label>Info</label>
+    <input type="text" id="addInfo" placeholder="Optional">
+    <label>Bemerkung</label>
+    <input type="text" id="addBem" placeholder="Optional">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeAddModal()">Abbrechen</button>
+      <button class="btn-save" id="saveLocBtn" onclick="savePersonalLoc()">Speichern</button>
+    </div>
+    <button class="btn-delete-personal" id="dDelBtn" style="display:none;margin-top:8px;width:100%"
+            onclick="deleteLocation()">🗑 Standort löschen</button>
+  </div>
+</div>
+
+<!-- Modal: Live-Standort teilen -->
+<div class="live-modal-bg" id="liveModal">
+  <div class="live-modal">
+    <h3>📡 Live-Standort teilen</h3>
+    <label>Dein Name</label>
+    <input type="text" id="liveUsername" placeholder="z.B. Max" autocomplete="off">
+    <label>Breite (Latitude)</label>
+    <input type="number" id="liveLat" step="any" placeholder="z.B. 48.137154">
+    <label>Länge (Longitude)</label>
+    <input type="number" id="liveLng" step="any" placeholder="z.B. 11.576124">
+    <button class="btn-gps" onclick="startPickMode()" style="margin-top:8px">📍 Auf Karte antippen</button>
+    <button class="btn-gps" onclick="useLiveGps()">📡 GPS-Standort verwenden</button>
+    <div class="live-status" id="liveStatus"></div>
+    <button class="btn-share" id="shareBtn" onclick="doShareLocation()">Standort teilen</button>
+    <button class="btn-remove-live" onclick="doRemoveLocation()">Standort entfernen</button>
+    <button class="btn-close" onclick="closeLiveModal()" style="margin-top:8px;width:100%">Schließen</button>
+  </div>
+</div>
+
+<!-- Modal: Hauptstandort -->
+<div class="home-modal-bg" id="homeModal">
+  <div class="home-modal">
+    <h3>🏠 Hauptstandort</h3>
+    <p style="color:#7a7a90;font-size:13px;margin-bottom:10px">Startpunkt für Routen</p>
+    <div class="home-current" id="homeCurrentBox" style="display:none">
+      <b id="homeCurrentName"></b>
+      <span id="homeCurrentCoords" style="display:block;font-size:12px;color:#7a7a90;margin-top:2px"></span>
+      <button onclick="clearHauptstandort()" style="margin-top:8px;width:100%;padding:8px;background:#2a2a32;border:none;border-radius:8px;color:#e05252;font-size:13px;cursor:pointer">✕ Hauptstandort entfernen</button>
+    </div>
+    <label style="display:block;font-size:12px;color:#7a7a90;margin-bottom:4px;margin-top:12px">Bezeichnung (optional)</label>
+    <input class="home-search" type="text" id="homeName" placeholder="z.B. Zuhause, Büro …" autocomplete="off">
+    <label style="display:block;font-size:12px;color:#7a7a90;margin-bottom:4px;margin-top:8px">Breite (Latitude) *</label>
+    <input class="home-search" type="number" id="homeLat" step="any" placeholder="z.B. 48.137154">
+    <label style="display:block;font-size:12px;color:#7a7a90;margin-bottom:4px;margin-top:8px">Länge (Longitude) *</label>
+    <input class="home-search" type="number" id="homeLng" step="any" placeholder="z.B. 11.576124">
+    <button class="btn-gps" onclick="useHomeGps()" style="margin-top:4px">📡 GPS-Standort verwenden</button>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn-cancel" onclick="closeHomeModal()">Abbrechen</button>
+      <button class="btn-save" onclick="saveHomeCoords()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay + Detail -->
+<div id="overlay" onclick="closeDetail()"></div>
+<div id="detail">
+  <div class="sheet-handle"></div>
+  <div class="sheet-body">
+    <div class="sheet-title" id="dName"></div>
+    <div class="sheet-row"><span class="sheet-label">Breite</span><span class="sheet-val" id="dLat"></span></div>
+    <div class="sheet-row"><span class="sheet-label">Länge</span><span class="sheet-val" id="dLng"></span></div>
+    <div class="sheet-row" id="dInfoRow"><span class="sheet-label">Info</span><span class="sheet-val" id="dInfo"></span></div>
+    <div class="sheet-row" id="dBemRow"><span class="sheet-label">Notiz</span><span class="sheet-val" id="dBem"></span></div>
+    <div class="sheet-row" id="dKundeRow"><span class="sheet-label">Kunde</span><span class="sheet-val" id="dKunde"></span></div>
+  </div>
+  <div class="sheet-actions">
+    <button class="btn-maps" onclick="showOnMap()">🗺️ Karte öffnen</button>
+    <a class="btn-maps-home" id="dMapsHome" href="#" target="_blank" style="display:none">🏠 Externe Karte – vom Hauptstandort</a>
+    <a class="btn-maps-gps"  id="dMapsGps"  href="#" target="_blank">📡 Externe Karte – von meinem Standort</a>
+    <button class="btn-edit-loc" id="dEditBtn" onclick="openEditModal()">✏️ Bearbeiten</button>
+    <button class="btn-close" onclick="closeDetail()">Schließen</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="config.js?v=2"></script>
+<script src="crypto-utils.js?v=2"></script>
+<script src="leaflet.js?v=1"></script>
+<script>
+
+// Aus data.json geladene Stationen (nach Login befüllt)
+var allLocs      = [];
+// Lokal gespeicherte eigene Standorte (bleiben auch nach Reload erhalten)
+var personalLocs = JSON.parse(localStorage.getItem('gps_personal') || '[]');
+
+// data.json sofort vorladen – kein Cache (Timestamp verhindert Browser-Cache)
+var _dataJsonPromise = fetch('data.json?v=' + Date.now()).then(function(r){ return r.json(); }).catch(function(){ return null; });
+
+// ── Daten-Parsing ─────────────────────────────────────────────────────────────
+
+/**
+ * Wandelt das kompakte Array-Format [name,lat,lng,info,bem,kunde]
+ * in Objekte um. Unterstützt auch das ältere Objekt-Format.
+ */
+function parseLocs(raw) {
+    if (!raw || !raw.length) return [];
+    if (Array.isArray(raw[0])) {
+        return raw.map(function(r) {
+            return {name:r[0], lat:r[1], lng:r[2], info:r[3]||'', bem:r[4]||'', kunde:r[5]||''};
+        });
+    }
+    return raw;
+}
+
+var leafMap      = null;
+var mapInit      = false;
+var activeKunde  = null;  // aktuell gewählter Kunden-Filter
+
+/** Eigene Standorte im localStorage speichern. */
+function savePersonalLocs() { localStorage.setItem('gps_personal', JSON.stringify(personalLocs)); }
+
+/**
+ * Gibt alle Stationen zusammen zurück (Excel-Daten + eigene),
+ * alphabetisch nach Name sortiert.
+ */
+function combinedLocs() {
+    var shared   = allLocs.map(function(l) { return Object.assign({}, l, {_personal: false}); });
+    var personal = personalLocs.map(function(l) { return Object.assign({}, l, {_personal: true}); });
+    var all = shared.concat(personal);
+    all.sort(function(a,b){ return a.name.localeCompare(b.name,'de'); });
+    return all;
+}
+
+// ── Kunden-Filter ─────────────────────────────────────────────────────────────
+
+/** Kunden-Dropdown mit allen vorhandenen Kundennamen befüllen. */
+function buildKundeBar() {
+    var bar = document.getElementById('kundeBar');
+    var sel = document.getElementById('kundeSelect');
+    var kunden = [];
+    combinedLocs().forEach(function(l) {
+        if (l.kunde && kunden.indexOf(l.kunde) === -1) kunden.push(l.kunde);
+    });
+    kunden.sort(function(a,b){ return a.localeCompare(b,'de'); });
+    if (!kunden.length) { bar.style.display = 'none'; return; }
+    sel.innerHTML = '<option value="">Alle Kunden</option>';
+    kunden.forEach(function(k) {
+        var opt = document.createElement('option');
+        opt.value = k; opt.textContent = k;
+        if (k === activeKunde) opt.selected = true;
+        sel.appendChild(opt);
+    });
+    sel.className = activeKunde ? 'active' : '';
+    bar.style.display = 'block';
+}
+
+/** Wird aufgerufen wenn der Nutzer einen Kunden aus dem Dropdown wählt. */
+function onKundeSelect(val) {
+    activeKunde = val || null;
+    var sel = document.getElementById('kundeSelect');
+    sel.className = activeKunde ? 'active' : '';
+    refreshList();
+    if (mapInit) refreshMapMarkers();
+}
+
+// ── Eigener Standort hinzufügen ───────────────────────────────────────────────
+
+/** Öffnet das Modal zum Hinzufügen eines eigenen Standorts und setzt alle Felder zurück. */
+function openAddModal() {
+    document.getElementById('addName').value = '';
+    document.getElementById('addLat').value  = '';
+    document.getElementById('addLng').value  = '';
+    document.getElementById('addInfo').value  = '';
+    document.getElementById('addBem').value   = '';
+    document.getElementById('dDelBtn').style.display = 'none';
+    document.querySelector('#addModal h3').textContent = '📍 Standort hinzufügen';
+    var sel = document.getElementById('addKunde');
+    sel.innerHTML = '<option value="">— Kunde wählen —</option>';
+    var kunden = [];
+    allLocs.forEach(function(l) {
+        if (l.kunde && kunden.indexOf(l.kunde) === -1) kunden.push(l.kunde);
+    });
+    if (kunden.indexOf('Sonstige') === -1) kunden.push('Sonstige');
+    kunden.sort(function(a,b){ return a.localeCompare(b,'de'); });
+    kunden.forEach(function(k) {
+        var opt = document.createElement('option');
+        opt.value = k; opt.textContent = k;
+        sel.appendChild(opt);
+    });
+    document.getElementById('addModal').classList.add('show');
+    setTimeout(function(){ document.getElementById('addName').focus(); }, 100);
+}
+
+function closeAddModal() {
+    document.getElementById('addModal').classList.remove('show');
+    _editingLoc = null;
+}
+
+// ── GitHub API – Gemeinsame Daten schreiben ───────────────────────────────────
+
+/** GitHub API-URL für die data.json im konfigurierten Repository. */
+function dataApiUrl() {
+    return 'https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/data.json';
+}
+
+/**
+ * Verschlüsselt die übergebene Stationsliste und schreibt sie als data.json auf GitHub.
+ * Ruft onDone(true) bei Erfolg oder onDone(false, fehlertext) bei Fehler auf.
+ */
+function writeDataJson(locs, onDone) {
+    var pw = localStorage.getItem('gps_pw');
+    if (!pw || !ghConfigured()) { onDone(false, 'Nicht konfiguriert'); return; }
+    var plain = JSON.stringify(locs.map(function(l) {
+        return {name: l.name, lat: l.lat, lng: l.lng,
+                info: l.info || '', bem: l.bem || '', kunde: l.kunde || ''};
+    }));
+    CryptoUtils.encrypt(plain, pw).then(function(payload) {
+        var fileContent = toB64(JSON.stringify({payload: payload}));
+        return fetch(dataApiUrl(), { headers: ghHeaders() })
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .then(function(file) {
+                var body = {message: 'Standort hinzugefügt', content: fileContent};
+                if (file) body.sha = file.sha;  // SHA nötig für Updates bestehender Dateien
+                return fetch(dataApiUrl(), {
+                    method: 'PUT', headers: ghHeaders(), body: JSON.stringify(body)
+                });
+            })
+            .then(function(r) {
+                if (!r.ok) {
+                    return r.json().then(function(err) {
+                        onDone(false, 'HTTP ' + r.status + ': ' + (err.message || ''));
+                    });
+                }
+                // SHA zurücksetzen → nächster Poll lädt sofort neu bei allen Nutzern
+                lastDataSha = null;
+                Object.keys(sessionStorage).forEach(function(k){
+                    if (k.indexOf('gps_cache_') === 0) sessionStorage.removeItem(k);
+                });
+                onDone(true, '');
+            });
+    }).catch(function(e) { onDone(false, e.message || 'Netzwerkfehler'); });
+}
+
+/** Speichert einen neuen oder bearbeiteten Standort (GitHub oder lokal). */
+function savePersonalLoc() {
+    var name  = document.getElementById('addName').value.trim();
+    var lat   = parseFloat(document.getElementById('addLat').value);
+    var lng   = parseFloat(document.getElementById('addLng').value);
+    var info  = document.getElementById('addInfo').value.trim();
+    var bem   = document.getElementById('addBem').value.trim();
+    var kunde = document.getElementById('addKunde').value.trim();
+
+    if (!name) { alert('Bitte einen Namen eingeben.'); return; }
+    if (isNaN(lat) || lat < -90  || lat > 90)  { alert('Breite ungültig (−90 bis +90).'); return; }
+    if (isNaN(lng) || lng < -180 || lng > 180) { alert('Länge ungültig (−180 bis +180).'); return; }
+
+    var newLoc = {name: name, lat: lat, lng: lng, info: info, bem: bem, kunde: kunde};
+
+    // Modal-Titel + Löschen-Button für nächste Öffnung zurücksetzen
+    document.querySelector('#addModal h3').textContent = '📍 Standort hinzufügen';
+    document.getElementById('dDelBtn').style.display = 'none';
+
+    // Persönlicher Standort (lokal): direkt in personalLocs bearbeiten oder hinzufügen
+    if (_editingLoc && _editingLoc._personal) {
+        personalLocs = personalLocs.map(function(l) {
+            return (l.name === _editingLoc.name && l.lat === _editingLoc.lat) ? newLoc : l;
+        });
+        _editingLoc = null;
+        savePersonalLocs();
+        closeAddModal();
+        refreshList();
+        return;
+    }
+
+    if (ghConfigured()) {
+        var btn = document.getElementById('saveLocBtn');
+        btn.disabled = true;
+        btn.textContent = 'Wird gespeichert …';
+        var baseList = allLocs.map(function(l) {
+            return {name:l.name, lat:l.lat, lng:l.lng, info:l.info||'', bem:l.bem||'', kunde:l.kunde||''};
+        });
+        // editingLoc vor dem async-Call sichern, dann null setzen
+        var savedEditingLoc = _editingLoc;
+        _editingLoc = null;
+        var updatedLocs;
+        if (savedEditingLoc) {
+            updatedLocs = baseList.map(function(l) {
+                return (l.name === savedEditingLoc.name && l.lat === savedEditingLoc.lat) ? newLoc : l;
+            });
+        } else {
+            updatedLocs = baseList.concat([newLoc]);
+        }
+        writeDataJson(updatedLocs, function(ok, errMsg) {
+            btn.disabled = false;
+            btn.textContent = 'Speichern';
+            if (ok) {
+                allLocs = updatedLocs;
+                allLocs.sort(function(a,b){ return a.name.localeCompare(b.name,'de'); });
+                buildKundeBar();
+                refreshList();
+                if (mapInit) refreshMapMarkers();
+                closeAddModal();
+            } else {
+                if (errMsg && errMsg.indexOf('401') !== -1) {
+                    var token = prompt('GitHub Token abgelaufen oder fehlt.\n\nNeuen Personal Access Token eingeben\n(github.com → Settings → Developer Settings → Fine-grained tokens):');
+                    if (token && token.trim()) {
+                        localStorage.setItem('gh_pat', token.trim());
+                        GH_PAT = token.trim();
+                        alert('Token gespeichert – bitte nochmal speichern.');
+                    }
+                } else {
+                    alert('GitHub Fehler: ' + (errMsg || 'unbekannt') + '\n\nStandort wird lokal gespeichert.');
+                }
+                // Bei Fehler: nur hinzufügen wenn es kein Edit war
+                if (!savedEditingLoc) {
+                    personalLocs.push(newLoc);
+                    savePersonalLocs();
+                    refreshList();
+                }
+                closeAddModal();
+            }
+        });
+    } else {
+        // Kein GitHub konfiguriert → lokal speichern oder ersetzen
+        if (_editingLoc && !_editingLoc._personal) {
+            // Shared station ohne GitHub: als persönlichen Eintrag ergänzen, Original in allLocs bleibt
+            var existsInPersonal = personalLocs.some(function(l) {
+                return l.name === _editingLoc.name && l.lat === _editingLoc.lat;
+            });
+            if (!existsInPersonal) personalLocs.push(newLoc);
+            else personalLocs = personalLocs.map(function(l) {
+                return (l.name === _editingLoc.name && l.lat === _editingLoc.lat) ? newLoc : l;
+            });
+        } else {
+            personalLocs.push(newLoc);
+        }
+        savePersonalLocs();
+        closeAddModal();
+        refreshList();
+    }
+}
+
+/** Löscht einen lokal gespeicherten Standort aus der Liste. */
+function deletePersonalLoc(name, lat) {
+    personalLocs = personalLocs.filter(function(l){
+        return l.name !== name || l.lat !== lat;
+    });
+    savePersonalLocs();
+    closeDetail();
+    refreshList();
+}
+
+// ── Standort bearbeiten ───────────────────────────────────────────────────────
+
+var _editingLoc = null;  // merkt sich welcher Standort gerade bearbeitet wird
+
+/** Öffnet das Hinzufügen-Modal vorausgefüllt mit den Daten des aktuellen Standorts. */
+function openEditModal() {
+    if (!currentLoc) return;
+    _editingLoc = currentLoc;
+    closeDetail();
+    openAddModal();
+    var sel = document.getElementById('addKunde');
+    // Kunden-Option hinzufügen falls noch nicht vorhanden
+    var found = false;
+    for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === (_editingLoc.kunde || '')) { found = true; break; }
+    }
+    if (!found && _editingLoc.kunde) {
+        var opt = document.createElement('option');
+        opt.value = _editingLoc.kunde; opt.textContent = _editingLoc.kunde;
+        sel.appendChild(opt);
+    }
+    sel.value = _editingLoc.kunde || '';
+    document.getElementById('addName').value = _editingLoc.name  || '';
+    document.getElementById('addLat') .value = _editingLoc.lat != null ? _editingLoc.lat : '';
+    document.getElementById('addLng') .value = _editingLoc.lng != null ? _editingLoc.lng : '';
+    document.getElementById('addInfo').value = _editingLoc.info  || '';
+    document.getElementById('addBem') .value = _editingLoc.bem   || '';
+    document.querySelector('#addModal h3').textContent = '✏️ Standort bearbeiten';
+    document.getElementById('dDelBtn').style.display = 'block';
+}
+
+/** Löscht den aktuell geöffneten Standort (lokal oder auf GitHub). */
+function deleteLocation() {
+    if (!currentLoc) return;
+    if (!confirm('Standort "' + currentLoc.name + '" wirklich löschen?')) return;
+    if (currentLoc._personal) {
+        deletePersonalLoc(currentLoc.name, currentLoc.lat);
+        return;
+    }
+    var btn = document.getElementById('dDelBtn');
+    btn.disabled = true;
+    btn.textContent = 'Wird gelöscht …';
+    var updatedLocs = allLocs.filter(function(l) { return l.name !== currentLoc.name || l.lat !== currentLoc.lat; });
+    writeDataJson(updatedLocs, function(ok, errMsg) {
+        btn.disabled = false;
+        btn.textContent = '🗑 Löschen';
+        if (ok) {
+            allLocs = updatedLocs;
+            allLocs.sort(function(a,b){ return a.name.localeCompare(b.name,'de'); });
+            buildKundeBar(); refreshList(); if (mapInit) refreshMapMarkers();
+            closeAddModal();
+            closeDetail();
+        } else {
+            alert('Fehler beim Löschen: ' + (errMsg || 'unbekannt'));
+        }
+    });
+}
+
+/** Füllt die Koordinatenfelder im Modal mit dem aktuellen GPS-Standort. */
+function useMyLocation() {
+    if (!navigator.geolocation) { alert('GPS nicht verfügbar.'); return; }
+    navigator.geolocation.getCurrentPosition(function(pos) {
+        document.getElementById('addLat').value = pos.coords.latitude.toFixed(6);
+        document.getElementById('addLng').value = pos.coords.longitude.toFixed(6);
+    }, function() { alert('Standort konnte nicht ermittelt werden.'); });
+}
+
+// iOS-Erkennung für Maps-Links (Apple Maps statt Google Maps)
+var IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+// ── Stationsliste ─────────────────────────────────────────────────────────────
+
+/**
+ * Filtert und rendert die Stationsliste anhand von Suchtext und Kunden-Filter.
+ * Ohne aktiven Filter wird ein Hinweistext angezeigt (zu viele Einträge).
+ */
+function refreshList() {
+    var q    = document.getElementById('searchInput').value.trim().toLowerCase();
+    var ul   = document.getElementById('locationList');
+    var ct   = document.getElementById('countLbl');
+
+    if (!q && !activeKunde && !personalLocs.length) {
+        ct.textContent = '';
+        ul.innerHTML = '<li class="empty">Kunden auswählen oder Suchbegriff eingeben</li>';
+        return;
+    }
+
+    var list = combinedLocs().filter(function(l) {
+        if (activeKunde && (l.kunde || '') !== activeKunde) return false;
+        if (!q) return true;
+        return l.name.toLowerCase().indexOf(q) !== -1 ||
+               (l.info||'').toLowerCase().indexOf(q) !== -1 ||
+               (l.bem||'').toLowerCase().indexOf(q) !== -1 ||
+               (l.kunde||'').toLowerCase().indexOf(q) !== -1;
+    });
+    renderList(list);
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────────
+
+/** Passwort-Feld umschalten: verborgen ↔ sichtbar. */
+function togglePw() {
+    var inp = document.getElementById('pwInput');
+    var btn = inp.nextElementSibling;
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+    btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
+// Enter-Taste im Passwort-Feld löst Login aus
+document.getElementById('pwInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doLogin();
+});
+
+/**
+ * Entschlüsselt data.json mit dem eingegebenen Passwort.
+ * Nutzt sessionStorage als Cache damit ein Reload nicht erneut entschlüsseln muss.
+ */
+function doLogin() {
+    var pw  = document.getElementById('pwInput').value;
+    var err = document.getElementById('loginErr');
+    var btn = document.getElementById('loginBtn');
+    var spn = document.getElementById('loginSpin');
+    err.textContent = '';
+
+    if (!pw) { err.textContent = 'Bitte Passwort eingeben.'; return; }
+    // Web Crypto API erfordert HTTPS oder localhost
+    if (!window.crypto || !window.crypto.subtle) {
+        err.textContent = 'Fehler: Verschlüsselung nicht verfügbar (kein HTTPS / localhost).';
+        return;
+    }
+
+    btn.disabled = true;
+    spn.style.display = 'block';
+    spn.textContent = 'Daten werden geladen …';
+
+    _dataJsonPromise
+        .then(function(json) {
+            if (!json || !json.payload) throw new Error('Keine Daten vorhanden.');
+            // Cache-Key aus den letzten 32 Zeichen des Payloads (eindeutig pro Export)
+            var cacheKey = 'gps_cache_' + json.payload.slice(-32);
+            var cached   = sessionStorage.getItem(cacheKey);
+            if (cached) {
+                try { if (JSON.parse(cached).length) return cached; } catch(e) {}
+            }
+            spn.textContent = 'Wird entschlüsselt …';
+            return CryptoUtils.decrypt(json.payload, pw).then(function(plain) {
+                sessionStorage.setItem(cacheKey, plain);
+                return plain;
+            });
+        })
+        .then(function(plain) {
+            allLocs = parseLocs(JSON.parse(plain));
+            allLocs.sort(function(a,b){ return a.name.localeCompare(b.name,'de'); });
+            localStorage.setItem('gps_pw', pw);  // für Auto-Login beim nächsten Besuch
+            showApp();
+        })
+        .catch(function(e) {
+            btn.disabled = false;
+            spn.style.display = 'none';
+            spn.textContent = 'Wird entschlüsselt …';
+            err.textContent = e && e.message ? e.message : 'Falsches Passwort.';
+        });
+}
+
+/** Login-Ansicht ausblenden, App-Ansicht einblenden. */
+function showApp() {
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').style.display   = 'flex';
+    buildKundeBar();
+    refreshList();
+    startDataRefresh();
+}
+
+// ── Automatischer Daten-Refresh (GitHub) ─────────────────────────────────────
+
+var dataRefreshTimer = null;
+var lastDataSha      = null;  // SHA der zuletzt geladenen data.json
+
+/** Startet den 30-Sekunden-Intervall-Check auf neue Daten (nur bei GitHub-Config). */
+function startDataRefresh() {
+    if (!ghConfigured()) return;
+    if (dataRefreshTimer) clearInterval(dataRefreshTimer);
+    dataRefreshTimer = setInterval(checkForDataUpdates, 30000);
+}
+
+/**
+ * Prüft ob die data.json auf GitHub sich geändert hat (via SHA-Vergleich).
+ * Lädt und entschlüsselt nur bei tatsächlicher Änderung.
+ */
+function checkForDataUpdates() {
+    if (!ghConfigured()) return;
+    fetch('https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO +
+          '/contents/data.json',
+          { headers: ghHeaders() })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(file) {
+            if (!file || file.sha === lastDataSha) return;  // keine Änderung
+            lastDataSha = file.sha;
+            var pw = localStorage.getItem('gps_pw');
+            if (!pw) return;
+            var json = JSON.parse(fromB64(file.content));
+            return CryptoUtils.decrypt(json.payload, pw);
+        })
+        .then(function(plain) {
+            if (!plain) return;
+            allLocs = parseLocs(JSON.parse(plain));
+            allLocs.sort(function(a,b){ return a.name.localeCompare(b.name,'de'); });
+            buildKundeBar();
+            refreshList();
+            if (mapInit) refreshMapMarkers();
+        })
+        .catch(function() {});
+}
+
+/**
+ * Beim Seitenaufruf: gespeichertes Passwort aus localStorage versuchen.
+ * Bei falschem Passwort wird es gelöscht und der Login-Screen angezeigt.
+ */
+function tryAutoLogin() {
+    var pw = localStorage.getItem('gps_pw');
+    if (!pw || !window.crypto || !window.crypto.subtle) return;
+    _dataJsonPromise
+        .then(function(json) {
+            if (!json || !json.payload) return;
+            var cacheKey = 'gps_cache_' + json.payload.slice(-32);
+            var cached   = sessionStorage.getItem(cacheKey);
+            if (cached) {
+                try { if (JSON.parse(cached).length) return cached; } catch(e) {}
+            }
+            return CryptoUtils.decrypt(json.payload, pw).then(function(plain) {
+                sessionStorage.setItem(cacheKey, plain);
+                return plain;
+            });
+        })
+        .then(function(plain) {
+            if (!plain) return;
+            allLocs = parseLocs(JSON.parse(plain));
+            allLocs.sort(function(a,b){ return a.name.localeCompare(b.name,'de'); });
+            showApp();
+        })
+        .catch(function() {
+            localStorage.removeItem('gps_pw');  // abgelaufenes / ungültiges Passwort entfernen
+        });
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+
+/** Schaltet zwischen Suche-Tab und Karten-Tab um. */
+function showTab(tab) {
+    var isList = tab === 'list';
+    document.getElementById('tab-list').style.display = isList ? 'flex' : 'none';
+    document.getElementById('tab-map') .style.display = isList ? 'none' : 'block';
+    document.getElementById('tabList').classList.toggle('active',  isList);
+    document.getElementById('tabMap') .classList.toggle('active', !isList);
+    document.getElementById('addBtn') .style.display  = isList ? '' : 'none';
+    if (!isList) {
+        setTimeout(function() {
+            if (!mapInit) initMap();
+            else refreshMapMarkers();
+            if (leafMap) leafMap.invalidateSize();
+        }, 50);
+    }
+}
+
+// ── Karte (Leaflet) ───────────────────────────────────────────────────────────
+
+var mapMarkerGroup = null;
+var _mapLocs = {};    // idx → loc Lookup für Marker-Klick
+var _mapLocIdx = 0;
+var iconRed  = null;
+var iconBlue = null;  // blau = eigener Standort
+
+/** Öffnet das Detail-Sheet für den Marker am gegebenen Index. */
+function openDetailFromMap(idx) {
+    if (_mapLocs[idx]) { closeMapInfo(); openDetail(_mapLocs[idx]); }
+}
+
+/** Zeigt die Info-Box über einem Karten-Marker. */
+function openMapInfo(loc, idx, point) {
+    var box = document.getElementById('mapInfoBox');
+    document.getElementById('mibName') .textContent = loc.name;
+    document.getElementById('mibKunde').textContent = loc.kunde || '';
+    document.getElementById('mibInfo') .textContent = loc.info  || '';
+    document.getElementById('mibKunde').style.display = loc.kunde ? 'block' : 'none';
+    document.getElementById('mibInfo') .style.display = loc.info  ? 'block' : 'none';
+    if (idx !== null) {
+        document.getElementById('mibBtn').onclick = function() { openDetailFromMap(idx); };
+    } else {
+        document.getElementById('mibBtn').onclick = function() { closeMapInfo(); openDetail(loc); };
+    }
+    // Box über dem Pin positionieren, aber innerhalb der Karte halten
+    var mapDiv = document.getElementById('map');
+    var boxW = 240, boxH = 140;
+    var left = Math.min(Math.max(point.x - boxW/2, 8), mapDiv.offsetWidth  - boxW - 8);
+    var top  = Math.max(point.y - boxH - 20, 8);
+    box.style.left = left + 'px';
+    box.style.top  = top  + 'px';
+    box.classList.add('show');
+    leafMap.on('click', closeMapInfo);
+}
+
+function closeMapInfo() {
+    document.getElementById('mapInfoBox').classList.remove('show');
+    if (leafMap) leafMap.off('click', closeMapInfo);
+}
+
+/** Initialisiert die Leaflet-Karte (wird nur einmal aufgerufen). */
+function initMap() {
+    mapInit = true;
+
+    // Lokale Marker-Bilder verwenden (kein CDN nötig)
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+        iconUrl:       'images/marker-icon.png',
+        iconRetinaUrl: 'images/marker-icon-2x.png',
+        shadowUrl:     'images/marker-shadow.png',
+        iconSize:      [25, 41], iconAnchor:  [12, 41],
+        popupAnchor:   [1, -34], shadowSize:  [41, 41]
+    });
+
+    // Roter Marker für Excel-Stationen
+    iconRed  = new L.Icon({
+        iconUrl:       'images/marker-icon.png',
+        iconRetinaUrl: 'images/marker-icon-2x.png',
+        shadowUrl:     'images/marker-shadow.png',
+        iconSize:      [25, 41], iconAnchor:  [12, 41],
+        popupAnchor:   [1, -34], shadowSize:  [41, 41],
+        className:     'marker-red'
+    });
+
+    // Blauer Marker für eigene Standorte
+    iconBlue = new L.Icon({
+        iconUrl:       'images/marker-icon.png',
+        iconRetinaUrl: 'images/marker-icon-2x.png',
+        shadowUrl:     'images/marker-shadow.png',
+        iconSize:      [25, 41], iconAnchor:  [12, 41],
+        popupAnchor:   [1, -34], shadowSize:  [41, 41]
+    });
+
+    leafMap = L.map('map').setView([51, 10], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(leafMap);
+    mapMarkerGroup = L.featureGroup().addTo(leafMap);
+    refreshMapMarkers();
+    loadLiveLocations();
+
+    // Klick auf Karte im Pick-Modus → Marker setzen
+    leafMap.on('click', function(e) {
+        if (!pickMode) return;
+        if (pickMarker) leafMap.removeLayer(pickMarker);
+        var icon = L.divIcon({
+            className: '',
+            html: '<div class="live-dot"></div>',
+            iconSize: [14, 14], iconAnchor: [7, 7]
+        });
+        pickMarker = L.marker([e.latlng.lat, e.latlng.lng], { icon: icon }).addTo(leafMap);
+        document.getElementById('mapPickCoords').textContent =
+            e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5);
+        document.getElementById('mapPickConfirm').style.display = 'flex';
+        document.getElementById('mapPickShareBtn').textContent  = '📡 Diesen Standort teilen';
+        document.getElementById('mapPickShareBtn').disabled     = false;
+    });
+    if (liveRefreshTimer) clearInterval(liveRefreshTimer);
+    liveRefreshTimer = setInterval(loadLiveLocations, 60000);
+}
+
+/** Leert und setzt alle Marker neu (nach Filter-Wechsel oder Daten-Update). */
+function refreshMapMarkers() {
+    if (!leafMap || !mapMarkerGroup) return;
+    mapMarkerGroup.clearLayers();
+    _mapLocs = {};
+    _mapLocIdx = 0;
+
+    var noFilterMsg = document.getElementById('mapNoFilterMsg');
+    if (!activeKunde) {
+        // Ohne Kunden-Filter keine Marker zeigen – zu viele Punkte für die Übersicht
+        if (noFilterMsg) noFilterMsg.style.display = 'flex';
+        return;
+    }
+    if (noFilterMsg) noFilterMsg.style.display = 'none';
+
+    var locs = combinedLocs().filter(function(l) {
+        return (l.kunde || '') === activeKunde;
+    });
+    locs.forEach(function(loc) {
+        var icon = loc._personal ? iconBlue : iconRed;
+        var m = L.marker([loc.lat, loc.lng], {icon: icon});
+        (function(l, idx){
+            _mapLocs[idx] = l;
+            m.on('click', function(e) {
+                L.DomEvent.stopPropagation(e);
+                openMapInfo(l, idx, e.containerPoint);
+            });
+        })(loc, _mapLocIdx++);
+        mapMarkerGroup.addLayer(m);
+    });
+
+    if (locs.length === 1) {
+        leafMap.setView([locs[0].lat, locs[0].lng], 14);
+    } else if (locs.length > 1) {
+        leafMap.fitBounds(mapMarkerGroup.getBounds().pad(0.15));
+    }
+}
+
+/** Gibt die passende Maps-URL zurück (Apple Maps auf iOS, Google Maps sonst). */
+function mapsUrl(loc) {
+    return IS_IOS
+        ? 'https://maps.apple.com/?q=' + encodeURIComponent(loc.name) + '&ll=' + loc.lat + ',' + loc.lng + '&z=16'
+        : 'https://www.google.com/maps/search/?api=1&query=' + loc.lat + ',' + loc.lng;
+}
+
+/** Gibt eine Routen-URL vom Startpunkt zum Ziel zurück. */
+function mapsUrlFrom(start, dest) {
+    return IS_IOS
+        ? 'https://maps.apple.com/?saddr=' + start.lat + ',' + start.lng +
+          '&daddr=' + dest.lat + ',' + dest.lng
+        : 'https://www.google.com/maps/dir/' + start.lat + ',' + start.lng +
+          '/' + dest.lat + ',' + dest.lng;
+}
+
+// ── Hauptstandort ─────────────────────────────────────────────────────────────
+
+// Startpunkt für Routen – wird im localStorage gespeichert
+var hauptstandort = JSON.parse(localStorage.getItem('hauptstandort') || 'null');
+
+function saveHauptstandort(loc) {
+    hauptstandort = {name: loc.name, lat: loc.lat, lng: loc.lng, kunde: loc.kunde || ''};
+    localStorage.setItem('hauptstandort', JSON.stringify(hauptstandort));
+    updateHomeBtn();
+    showToast('🏠 Hauptstandort: ' + loc.name);
+}
+
+var _toastTimer = null;
+function showToast(msg) {
+    var t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    if (_toastTimer) clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(function() { t.classList.remove('show'); }, 2500);
+}
+
+function clearHauptstandort() {
+    hauptstandort = null;
+    localStorage.removeItem('hauptstandort');
+    updateHomeBtn();
+    closeHomeModal();
+}
+
+/** Haus-Icon gelb färben wenn ein Hauptstandort gesetzt ist. */
+function updateHomeBtn() {
+    var btn = document.getElementById('btnHome');
+    if (btn) btn.className = 'btn-home' + (hauptstandort ? ' set' : '');
+}
+
+function openHomeModal() {
+    var box = document.getElementById('homeCurrentBox');
+    if (hauptstandort) {
+        box.style.display = 'block';
+        document.getElementById('homeCurrentName').textContent = hauptstandort.name || 'Hauptstandort';
+        document.getElementById('homeCurrentCoords').textContent =
+            (hauptstandort.lat || 0).toFixed(5) + ', ' + (hauptstandort.lng || 0).toFixed(5);
+        document.getElementById('homeName').value = hauptstandort.name != null ? hauptstandort.name : '';
+        document.getElementById('homeLat').value  = hauptstandort.lat  != null ? hauptstandort.lat  : '';
+        document.getElementById('homeLng').value  = hauptstandort.lng  != null ? hauptstandort.lng  : '';
+    } else {
+        box.style.display = 'none';
+        document.getElementById('homeName').value = '';
+        document.getElementById('homeLat').value  = '';
+        document.getElementById('homeLng').value  = '';
+    }
+    document.getElementById('homeModal').classList.add('show');
+    setTimeout(function(){ document.getElementById('homeLat').focus(); }, 200);
+}
+
+function closeHomeModal() {
+    document.getElementById('homeModal').classList.remove('show');
+}
+
+function saveHomeCoords() {
+    var name = document.getElementById('homeName').value.trim() || 'Hauptstandort';
+    var lat  = parseFloat(document.getElementById('homeLat').value);
+    var lng  = parseFloat(document.getElementById('homeLng').value);
+    if (isNaN(lat) || lat < -90  || lat > 90)  { alert('Breite ungültig (−90 bis +90).'); return; }
+    if (isNaN(lng) || lng < -180 || lng > 180) { alert('Länge ungültig (−180 bis +180).'); return; }
+    saveHauptstandort({name: name, lat: lat, lng: lng, kunde: ''});
+    closeHomeModal();
+}
+
+function useHomeGps() {
+    if (!navigator.geolocation) { alert('GPS nicht verfügbar.'); return; }
+    navigator.geolocation.getCurrentPosition(function(pos) {
+        document.getElementById('homeLat').value = pos.coords.latitude.toFixed(6);
+        document.getElementById('homeLng').value = pos.coords.longitude.toFixed(6);
+    }, function() { alert('Standort konnte nicht ermittelt werden.'); });
+}
+
+// ── Suche ─────────────────────────────────────────────────────────────────────
+
+function doSearch() { refreshList(); }
+
+// ── Liste rendern ─────────────────────────────────────────────────────────────
+
+var LIST_LIMIT = 100;  // Maximale Anzahl angezeigter Einträge ohne Filter
+
+function renderList(list) {
+    var ul = document.getElementById('locationList');
+    var ct = document.getElementById('countLbl');
+    ul.innerHTML = '';
+
+    if (!list.length) {
+        ct.textContent = '0 Standorte';
+        ul.innerHTML = '<li class="empty">Keine Standorte gefunden.</li>';
+        return;
+    }
+
+    var shown = list.slice(0, LIST_LIMIT);
+    var rest  = list.length - shown.length;
+    ct.textContent = list.length + ' Standort' + (list.length !== 1 ? 'e' : '') +
+        (rest > 0 ? ' – ' + shown.length + ' angezeigt' : '');
+
+    if (rest > 0) {
+        ul.innerHTML = '<li class="empty" style="color:#f7c94f;font-size:13px">Zu viele Ergebnisse – bitte Suche oder Kunden-Filter nutzen um alle zu sehen</li>';
+    }
+
+    shown.forEach(function(loc) {
+        var li   = document.createElement('li');
+        li.className = 'loc-item';
+
+        var pin  = document.createElement('div');
+        pin.className = 'loc-pin' + (loc._personal ? ' personal' : '');
+
+        var body = document.createElement('div');
+        body.className = 'loc-body';
+        var nameDiv = document.createElement('div');
+        nameDiv.className = 'loc-name';
+        nameDiv.textContent = loc.name;
+        body.appendChild(nameDiv);
+        if (loc.info) {
+            var infoDiv = document.createElement('div');
+            infoDiv.className = 'loc-info';
+            infoDiv.textContent = loc.info;
+            body.appendChild(infoDiv);
+        }
+
+        var arrow = document.createElement('div');
+        arrow.className = 'loc-arrow';
+        arrow.textContent = '›';
+
+        li.appendChild(pin);
+        li.appendChild(body);
+        li.appendChild(arrow);
+        li.addEventListener('click', function() { openDetail(loc); });
+        ul.appendChild(li);
+    });
+}
+
+// ── Detail-Sheet ──────────────────────────────────────────────────────────────
+
+var currentLoc = null;  // aktuell geöffneter Standort
+
+/** Öffnet das Detail-Sheet für den gewählten Standort. */
+function openDetail(loc) {
+    currentLoc = loc;
+    document.getElementById('dName').textContent  = loc.name;
+    document.getElementById('dLat') .textContent  = loc.lat.toFixed(6);
+    document.getElementById('dLng') .textContent  = loc.lng.toFixed(6);
+    document.getElementById('dInfo').textContent  = loc.info  || '';
+    document.getElementById('dBem') .textContent  = loc.bem   || '';
+    document.getElementById('dKunde').textContent = loc.kunde || '';
+    // Leere Felder ausblenden
+    document.getElementById('dInfoRow') .style.display = loc.info  ? '' : 'none';
+    document.getElementById('dBemRow')  .style.display = loc.bem   ? '' : 'none';
+    document.getElementById('dKundeRow').style.display = loc.kunde ? '' : 'none';
+    document.getElementById('dMapsGps').href = mapsUrl(loc);
+    var homeBtn = document.getElementById('dMapsHome');
+    if (hauptstandort) {
+        homeBtn.href = mapsUrlFrom(hauptstandort, loc);
+        homeBtn.style.display = 'block';
+    } else {
+        homeBtn.style.display = 'none';
+    }
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('detail') .classList.add('show');
+}
+
+function closeDetail() {
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('detail') .classList.remove('show');
+}
+
+/** Schließt das Detail-Sheet und zentriert die Karte auf den Standort. */
+function showOnMap() {
+    if (!currentLoc) return;
+    closeDetail();
+    showTab('map');
+    setTimeout(function() {
+        if (!mapInit) initMap();
+        if (leafMap) {
+            leafMap.setView([currentLoc.lat, currentLoc.lng], 14);
+            mapMarkerGroup.eachLayer(function(m) {
+                if (m.getLatLng &&
+                    Math.abs(m.getLatLng().lat - currentLoc.lat) < 0.0001 &&
+                    Math.abs(m.getLatLng().lng - currentLoc.lng) < 0.0001) {
+                    var pt = leafMap.latLngToContainerPoint(m.getLatLng());
+                    openMapInfo(currentLoc, null, pt);
+                }
+            });
+        }
+    }, 100);
+}
+
+// ── Hilfsfunktionen ───────────────────────────────────────────────────────────
+
+/** Maskiert HTML-Sonderzeichen für sicheres Einfügen via innerHTML (XSS-Schutz). */
+function escH(s) {
+    var d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+}
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+
+tryAutoLogin();
+updateHomeBtn();
+
+// ── Live-Standort teilen (GitHub) ────────────────────────────────────────────
+
+var liveMarkerGroup = null;
+var liveRefreshTimer = null;
+
+/** Prüft ob GitHub-Zugang vollständig konfiguriert ist. */
+function ghConfigured() {
+    return GH_OWNER && GH_REPO && (localStorage.getItem('gh_pat') || GH_PAT);
+}
+function ghApiUrl() {
+    return 'https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/live-location.json';
+}
+function ghRawUrl() {
+    return 'https://raw.githubusercontent.com/' + GH_OWNER + '/' + GH_REPO + '/main/live-location.json';
+}
+function ghHeaders() {
+    var pat = localStorage.getItem('gh_pat') || GH_PAT;
+    return { 'Authorization': 'token ' + pat,
+             'Accept': 'application/vnd.github.v3+json',
+             'Content-Type': 'application/json' };
+}
+
+// Base64-Hilfsfunktionen für die GitHub API (sendet Dateiinhalt als Base64)
+function toB64(str)  { return btoa(unescape(encodeURIComponent(str))); }
+function fromB64(b64){ return decodeURIComponent(escape(atob(b64.replace(/\n/g,'')))); }
+
+function openLiveModal() {
+    document.getElementById('liveUsername').value = localStorage.getItem('live_username') || '';
+    document.getElementById('liveLat').value = '';
+    document.getElementById('liveLng').value = '';
+    document.getElementById('liveStatus').textContent = '';
+    document.getElementById('liveStatus').className = 'live-status';
+    document.getElementById('liveModal').classList.add('show');
+}
+function closeLiveModal() {
+    document.getElementById('liveModal').classList.remove('show');
+}
+
+/** Füllt die Koordinatenfelder im Live-Modal mit dem aktuellen GPS-Standort. */
+function useLiveGps() {
+    var st = document.getElementById('liveStatus');
+    st.textContent = 'GPS wird abgerufen …';
+    st.className = 'live-status';
+    if (!navigator.geolocation) { st.textContent = 'GPS nicht verfügbar.'; return; }
+    navigator.geolocation.getCurrentPosition(function(pos) {
+        document.getElementById('liveLat').value = pos.coords.latitude.toFixed(6);
+        document.getElementById('liveLng').value = pos.coords.longitude.toFixed(6);
+        st.textContent = '✓ GPS-Standort übernommen';
+        st.className = 'live-status ok';
+    }, function() {
+        st.textContent = 'GPS-Standort konnte nicht ermittelt werden.';
+        st.className = 'live-status err';
+    });
+}
+
+/** Schreibt den Live-Standort mit Name und Zeitstempel in die live-location.json auf GitHub. */
+function writeLocationToGitHub(lat, lng, onDone) {
+    var myName = document.getElementById('liveUsername').value.trim() || 'Anonym';
+    localStorage.setItem('live_username', myName);
+    fetch(ghApiUrl(), { headers: ghHeaders() })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(file) {
+            var data = {}, sha = null;
+            if (file) { sha = file.sha; try { data = JSON.parse(fromB64(file.content)); } catch(e){} }
+            data[myName] = { lat: lat, lng: lng, updated: new Date().toISOString() };
+            var body = { message: 'Live-Standort: ' + myName,
+                         content: toB64(JSON.stringify(data, null, 2)) };
+            if (sha) body.sha = sha;
+            return fetch(ghApiUrl(), { method: 'PUT', headers: ghHeaders(), body: JSON.stringify(body) });
+        })
+        .then(function(r) { onDone(r && r.ok); })
+        .catch(function()  { onDone(false); });
+}
+
+function doShareLocation() {
+    var lat = parseFloat(document.getElementById('liveLat').value);
+    var lng = parseFloat(document.getElementById('liveLng').value);
+    var st  = document.getElementById('liveStatus');
+    var btn = document.getElementById('shareBtn');
+    if (isNaN(lat) || isNaN(lng)) {
+        st.textContent = 'Bitte Koordinaten eingeben oder GPS verwenden.';
+        st.className = 'live-status err'; return;
+    }
+    btn.disabled = true;
+    st.textContent = 'Wird hochgeladen …';
+    st.className = 'live-status';
+    writeLocationToGitHub(lat, lng, function(ok) {
+        btn.disabled = false;
+        if (ok) {
+            st.textContent = '✓ Standort geteilt!';
+            st.className = 'live-status ok';
+            loadLiveLocations();
+        } else {
+            st.textContent = 'Fehler. Token oder Repo prüfen.';
+            st.className = 'live-status err';
+        }
+    });
+}
+
+// ── Pick-Modus (Karte antippen) ───────────────────────────────────────────────
+
+var pickMode        = false;
+var pickMarker      = null;
+var pickReturnToAdd = false;  // true wenn der Modus aus dem Hinzufügen-Modal gestartet wurde
+
+/** Startet den Pick-Modus aus dem Hinzufügen-Modal heraus. */
+function startPickModeFromAdd() {
+    var savedEditing = _editingLoc;        // Edit-Kontext sichern bevor closeAddModal ihn löscht
+    closeAddModal();
+    _editingLoc = savedEditing;            // nach closeAddModal wiederherstellen
+    showTab('map');
+    setTimeout(function() {
+        pickMode = true;
+        pickReturnToAdd = true;
+        document.getElementById('mapPickBanner').style.display  = 'flex';
+        document.getElementById('mapPickConfirm').style.display = 'none';
+        document.getElementById('mapPickCoords').textContent    = '';
+        document.getElementById('mapPickShareBtn').textContent  = '✓ Koordinaten übernehmen';
+        document.getElementById('mapPickShareBtn').disabled     = false;
+        leafMap.getContainer().style.cursor = 'crosshair';
+        var msg = document.getElementById('mapNoFilterMsg');
+        if (msg) msg.style.display = 'none';
+    }, 350);
+}
+
+/** Startet den Pick-Modus für das Live-Standort-Teilen. */
+function startPickMode() {
+    if (!ghConfigured()) {
+        alert('GitHub nicht konfiguriert. Bitte Web-App über die Desktop-App neu exportieren.');
+        return;
+    }
+    closeLiveModal();
+    showTab('map');
+    setTimeout(function() {
+        pickMode = true;
+        document.getElementById('mapPickBanner').style.display  = 'flex';
+        document.getElementById('mapPickConfirm').style.display = 'none';
+        document.getElementById('mapPickCoords').textContent    = '';
+        document.getElementById('mapPickShareBtn').textContent  = '📡 Diesen Standort teilen';
+        document.getElementById('mapPickShareBtn').disabled     = false;
+        leafMap.getContainer().style.cursor = 'crosshair';
+    }, 350);
+}
+
+function cancelPickMode() {
+    pickMode        = false;
+    pickReturnToAdd = false;
+    if (pickMarker) { leafMap.removeLayer(pickMarker); pickMarker = null; }
+    document.getElementById('mapPickBanner').style.display  = 'none';
+    document.getElementById('mapPickConfirm').style.display = 'none';
+    leafMap.getContainer().style.cursor = '';
+    var msg = document.getElementById('mapNoFilterMsg');
+    if (msg) msg.style.display = activeKunde ? 'none' : 'flex';
+}
+
+/** Bestätigt den gesetzten Marker – überträgt Koordinaten oder teilt den Standort. */
+function confirmPickLocation() {
+    if (!pickMarker) return;
+    var lat = pickMarker.getLatLng().lat;
+    var lng = pickMarker.getLatLng().lng;
+
+    if (pickReturnToAdd) {
+        // Koordinaten ins Hinzufügen-Modal übernehmen
+        var savedLat = lat.toFixed(6);
+        var savedLng = lng.toFixed(6);
+        var savedEditing = _editingLoc;
+        cancelPickMode();
+        pickReturnToAdd = false;
+        showTab('list');
+        openAddModal();
+        // NACH openAddModal setzen, da openAddModal die Felder zurücksetzt
+        document.getElementById('addLat').value = savedLat;
+        document.getElementById('addLng').value = savedLng;
+        // Beim Bearbeiten: restliche Felder aus _editingLoc wiederherstellen
+        if (savedEditing) {
+            _editingLoc = savedEditing;
+            document.getElementById('addName').value = savedEditing.name || '';
+            document.getElementById('addInfo').value = savedEditing.info || '';
+            document.getElementById('addBem') .value = savedEditing.bem  || '';
+            var sel = document.getElementById('addKunde');
+            if (savedEditing.kunde) sel.value = savedEditing.kunde;
+            document.querySelector('#addModal h3').textContent = '✏️ Standort bearbeiten';
+            document.getElementById('dDelBtn').style.display = 'block';
+        }
+        return;
+    }
+
+    var btn = document.getElementById('mapPickShareBtn');
+    btn.disabled = true;
+    btn.textContent = 'Wird hochgeladen …';
+    writeLocationToGitHub(lat, lng, function(ok) {
+        if (ok) {
+            btn.textContent = '✓ Geteilt!';
+            loadLiveLocations();
+            setTimeout(cancelPickMode, 1200);
+        } else {
+            btn.disabled = false;
+            btn.textContent = 'Fehler – nochmal versuchen';
+            setTimeout(function() { btn.textContent = '📡 Diesen Standort teilen'; }, 2500);
+        }
+    });
+}
+
+/** Entfernt den eigenen Eintrag aus der live-location.json auf GitHub. */
+function doRemoveLocation() {
+    var st  = document.getElementById('liveStatus');
+    var myName = localStorage.getItem('live_username') || 'Anonym';
+    st.textContent = 'Wird entfernt …';
+    st.className = 'live-status';
+
+    fetch(ghApiUrl(), { headers: ghHeaders() })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(file) {
+            if (!file) { st.textContent = 'Kein geteilter Standort gefunden.'; return; }
+            var data = {}, sha = file.sha;
+            try { data = JSON.parse(fromB64(file.content)); } catch(e) {}
+            delete data[myName];
+            var body = { message: 'Standort entfernt: ' + myName,
+                         content: toB64(JSON.stringify(data, null, 2)), sha: sha };
+            return fetch(ghApiUrl(), { method: 'PUT', headers: ghHeaders(), body: JSON.stringify(body) });
+        })
+        .then(function(r) {
+            if (r && r.ok) {
+                st.textContent = '✓ Standort entfernt';
+                st.className = 'live-status ok';
+                if (mapInit) loadLiveLocations();
+            } else if (r) {
+                st.textContent = 'Fehler beim Entfernen (HTTP ' + r.status + ').';
+                st.className = 'live-status err';
+            }
+        })
+        .catch(function() {
+            st.textContent = 'Netzwerkfehler.';
+            st.className = 'live-status err';
+        });
+}
+
+/** Lädt alle Live-Standorte von GitHub und zeigt sie als pulsierende Punkte auf der Karte. */
+function loadLiveLocations() {
+    if (!ghConfigured() || !leafMap) return;
+    if (!liveMarkerGroup) {
+        liveMarkerGroup = L.featureGroup().addTo(leafMap);
+    }
+    liveMarkerGroup.clearLayers();
+
+    fetch(ghRawUrl() + '?t=' + Date.now())
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(data) {
+            if (!data) return;
+            Object.keys(data).forEach(function(name) {
+                var loc = data[name];
+                if (!loc.lat || !loc.lng) return;
+                var icon = L.divIcon({
+                    className: '',
+                    html: '<div class="live-dot"></div>',
+                    iconSize: [14, 14], iconAnchor: [7, 7]
+                });
+                var ago = timeAgo(loc.updated);
+                var popup = '<b>📡 ' + escH(name) + '</b>' +
+                    '<br><span style="color:#4fc994;font-size:12px">Live-Standort</span>' +
+                    '<br><span style="color:#888;font-size:12px">Zuletzt: ' + ago + '</span>' +
+                    '<br><a href="https://www.google.com/maps/search/?api=1&query=' + loc.lat + ',' + loc.lng + '" target="_blank" style="color:#4f7ef7">&#128205; Route öffnen</a>';
+                L.marker([loc.lat, loc.lng], { icon: icon })
+                    .bindPopup(popup, { maxWidth: 220 })
+                    .addTo(liveMarkerGroup);
+            });
+        })
+        .catch(function() {});
+}
+
+/** Gibt einen lesbaren Zeitabstand zurück, z. B. "5 Min. ago". */
+function timeAgo(iso) {
+    if (!iso) return 'unbekannt';
+    var diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (diff < 60)    return 'gerade eben';
+    if (diff < 3600)  return Math.floor(diff/60)   + ' Min. ago';
+    if (diff < 86400) return Math.floor(diff/3600)  + ' Std. ago';
+    return Math.floor(diff/86400) + ' Tage ago';
+}
+
+// ── Auswahl-Sheet ─────────────────────────────────────────────────────────────
+
+function openAddChoice()  { document.getElementById('addChoiceModal').classList.add('show'); }
+function closeAddChoice() { document.getElementById('addChoiceModal').classList.remove('show'); }
+
+/** Öffnet das Hinzufügen-Modal und ermittelt sofort den GPS-Standort. */
+function openAddWithGps() {
+    closeAddChoice();
+    openAddModal();
+    if (!navigator.geolocation) return;
+    var latEl = document.getElementById('addLat');
+    var lngEl = document.getElementById('addLng');
+    latEl.placeholder = 'GPS wird ermittelt …';
+    lngEl.placeholder = 'GPS wird ermittelt …';
+    navigator.geolocation.getCurrentPosition(function(pos) {
+        latEl.value = pos.coords.latitude.toFixed(6);
+        lngEl.value = pos.coords.longitude.toFixed(6);
+        latEl.placeholder = 'z.B. 48.137154';
+        lngEl.placeholder = 'z.B. 11.576124';
+    }, function() {
+        latEl.placeholder = 'GPS nicht verfügbar – bitte manuell eingeben';
+        lngEl.placeholder = 'GPS nicht verfügbar – bitte manuell eingeben';
+    });
+}
+</script>
+</body>
+</html>
